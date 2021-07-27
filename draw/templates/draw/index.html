@@ -21,6 +21,8 @@
 <script>
 
     // setting up the canvas and one paper tool
+    const urlParams = new URLSearchParams(window.location.search);
+    var size = urlParams.get("size");
     var canvas = document.getElementById('myCanvas');
     paper.setup(canvas);
     var tool = new paper.Tool();
@@ -79,21 +81,22 @@
     }
 
     socket.onmessage = function(receivedMessage) {
-        var received = JSON.parse(receivedMessage.data);
-        console.log("Received: " + JSON.stringify(received));
-        //var point = new Point(received.x, received.y);
-        if (received.uid !== uid) {
-            if (all_paths.get(received.uid)) {
-                all_paths.get(received.uid).add(received);
-            } else {
-                newPath = new paper.Path();
-                newPath.strokeColor = getColorFromUid(received.uid);
-                newPath.add(received);
-                all_paths.set(received.uid, newPath);
-            }
-            //path.strokeColor = `#ff${received.uid}`
-            //path.add(received);
-        }
+        if (size === 'large') {
+            var received = JSON.parse(receivedMessage.data);
+            console.log("Received: " + JSON.stringify(received));
+            //var point = new Point(received.x, received.y);
+            if (received.uid !== uid) {
+                if (all_paths.get(received.uid)) {
+                    all_paths.get(received.uid).add(received);
+                } else {
+                    newPath = new paper.Path();
+                    newPath.strokeColor = getColorFromUid(received.uid);
+                    newPath.add(received);
+                    all_paths.set(received.uid, newPath);
+                }
+                //path.strokeColor = `#ff${received.uid}`
+                //path.add(received);
+        }}
         
         // You will probably want to add some code here to draw more lines.
     }
