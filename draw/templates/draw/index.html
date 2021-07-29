@@ -7,99 +7,217 @@
     <title>P4 Drawing</title>
 
     <link rel="stylesheet" type="text/css" href="{% static 'draw/vendor/bootstrap/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" type="text/css" href="./style.css">
     <script type="text/javascript" src="{% static 'draw/vendor/jquery/jquery-3.3.1.min.js' %}"></script>
     <script type="text/javascript" src="{% static 'draw/vendor/paper/paper-full.min.js' %}"></script>
 
     <style type="text/css">
+        html body {
+            height: 100%;
+            width: 100%;
+        }
+
+        #colorOpts {
+            height: 120px;
+            width: 100%;
+            background-color: bisque;
+        }
     </style>
 
 </head>
 <body>
-    <!-- You may change the dimensions of this canvas -->
-    <canvas id="myCanvas" width="750px" height="750px"></canvas>
+    <div id="titleBar">
+        <h1>Leave your message for the host here!</h1>
+    </div>
+    <!-- <canvas id="myCanvas"></canvas> -->
+
 </body>
 <script>
 
-    // setting up the canvas and one paper tool
+    // set up size, tool, uid
     const urlParams = new URLSearchParams(window.location.search);
     var size = urlParams.get("size");
-    var canvas = document.getElementById('myCanvas');
-    paper.setup(canvas);
     var tool = new paper.Tool();
-    var path = new paper.Path();
+    console.log("tool: ", tool);
     var uid = Date.now() % 10000;
-    function getColorFromUid(uid) {
-        var last = uid % 10;
-        switch(last) {
-            case 0:
-                return `#aa${uid}`
-                break;
-            case 1:
-                return `#bb${uid}`
-                break;
-            case 2:
-                return `#cc${uid}`
-                break;
-            case 3:
-                return `#dd${uid}`
-                break;
-            case 4:
-                return `#ee${uid}`
-                break;
-            case 5:
-                return `#ff${uid}`
-                break;
-            case 6:
-                return `#aa${uid}`
-                break;
-            case 7:
-                return `#bb${uid}`
-                break;
-            case 8:
-                return `#cc${uid}`
-                break;
-            case 9:
-                return `#dd${uid}`
-                break;
-        }
-    }
-    path.strokeColor = getColorFromUid(uid);
-    //path.strokeColor = "red";
+    var withSend = false;
+    // if (withSend) {
+    //     var pathsToSend = [];
+    // }
 
-    // getting the URL (you may want to use for Exercise 3)
-    var url = window.location.href;
+    //set up canvas for small
+    if (size == 'small') {
+        document.getElementById("titleBar").insertAdjacentHTML("afterend", "<canvas id='myCanvas' width='300px' height='300px'></canvas>");
+        document.getElementById("titleBar").insertAdjacentHTML("afterend", '<input id="textbox" type="text" placeholder="write here!" onKeyPress = "inputKeyPress()" onKeyUp = "inputKeyPress()" width="300px" height="300px"></canvas>');
+        var scope = new paper.PaperScope();
+        var canvas = document.getElementById('myCanvas');
+        //paper.setup(canvas);
+        scope.setup(canvas);
+        scope.activate();
+        console.log("activated scope");
+    }
+    
+    //add extra elements
+    if (size == "small") {
+        document.getElementById("myCanvas").insertAdjacentHTML("afterend", 
+        "<div id='colorOpts'><div id='red'></div><div id='green'></div><div id='yellow'></div><div id='blue'></div></div>") ;
+        if (withSend) {
+            document.getElementById("colorOpts").insertAdjacentHTML("afterend", 
+            '<button type="button" onClick= "sendPress()" >Send</button>');
+        }
+
+    }
 
     var socket = new WebSocket(
         'ws://' + window.location.host + '/ws/draw');
     var all_paths = new Map();
-    all_paths.set(uid, path);
-
+    //all_paths.set(uid, {paths: [], text: "", hasScope: false});
+    console.log("this much working");
+    function inputKeyPress() {
+        var inputVal = document.getElementById("textbox").value;
+        console.log("typeof(inputVal): ", typeof(inputVal));
+        console.log("inputVal: ", inputVal);
+        console.log(" '`${inputVal}`' :", '`${inputVal}`');
+        console.log(" typeof('`${inputVal}`') :", typeof('`${inputVal}`'));
+        var stringVal = JSON.stringify(inputVal);
+        console.log("stringVal: ", stringVal);
+        if (!withSend) {
+            socket.send("{\"uid\" : " + uid + ", \"message\" : \"text\"" + ", \"content\" : " + stringVal + "}" );
+        }
+    }
+    console.log("here?");
     tool.onMouseMove = function(event) { //http://paperjs.org/reference/tool/ path examples
-       path.add(event.point);
-       // You may need to add code here if you want to pass any other information.
-       socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + "}" );
+        console.log("mouse move");
+        path.add(event.point);}
+
+    tool.onMouseDown = function(event) { //http://paperjs.org/reference/tool/ path examples
+        console.log("mouse down");
+        path = new scope.Path();
+        path.add(event.point);
+        path.strokeColor = 'red';
+        //all_paths.get(uid).push(path);
+        // You may need to add code here if you want to pass any other information.
+        socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + true + ", \"message\" : \"path\"" + "}" );
+        // if (!withSend) {
+        //     socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + true + ", \"message\" : \"path\"" + "}" );
+        // }
+        // else {
+        //     pathsToSend.push(path);
+        // }
     }
 
-    socket.onmessage = function(receivedMessage) {
-        if (size === 'large') {
+    tool.onMouseDrag = function(event) { //http://paperjs.org/reference/tool/ path examples
+        console.log("mouse drag");
+        path.add(event.point);
+        socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + false + ", \"message\" : \"path\"" + "}" );
+        // You may need to add code here if you want to pass any other information.
+        // if (!withSend) {
+        //     socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + false + ", \"message\" : \"path\"" + "}" );
+        // }
+    }
+
+    function sendPress() {
+        var inputVal = document.getElementById("textbox").value;
+        var stringVal = JSON.stringify(inputVal);
+        socket.send("{\"uid\" : " + uid + ", \"message\" : \"text\"" + ", \"content\" : " + stringVal + "}" );
+        socket.send("{\"uid\" : " + uid + ", \"message\" : \"path\"" + ", \"paths\" : " + paths + "}" );
+    }
+
+    if (size == 'large' && !withSend) {
+        socket.onmessage = function(receivedMessage) {
             var received = JSON.parse(receivedMessage.data);
             console.log("Received: " + JSON.stringify(received));
+
+            if (!all_paths.get(received.uid)) {
+                var canvasName = `canvas${received.uid}`
+                document.getElementById("titleBar").insertAdjacentHTML("afterend", `<canvas id='${canvasName}' width='300px' height='300px'></canvas>`);
+                var newscope = new paper.PaperScope();
+                var newcanvas = document.getElementById(canvasName);
+                //paper.setup(canvas);
+                newscope.setup(newcanvas);
+                newscope.activate();
+                var pointytexty = new paper.PointText(new paper.Point(200, 50));
+                all_paths.set(received.uid, {paths: [], text: pointytexty, scope: newscope});
+            }
+            else {
+                var newscope = all_paths.get(received.uid).scope;
+                newscope.activate();
+            }
+            
+            if (received.message === 'path') {
+                //var point = new Point(received.x, received.y);
+                if (received.uid !== uid) {
+                    //if this uid has paths, and this isn't a new path- can prob change this to just isn't new path
+                    if (all_paths.get(received.uid).paths.length>0 && !(received.isNewPath)) {
+                        var paths = all_paths.get(received.uid).paths;
+                        paths[paths.length - 1].add(received);
+                    } else {
+                        newPath = new newscope.Path();
+                        //newPath.strokeColor = getColorFromUid(received.uid);
+                        newPath.strokeColor = "red"
+                        newPath.add(received);
+                        all_paths.get(received.uid).paths.push(newPath);
+                    }
+                    //path.strokeColor = `#ff${received.uid}`
+                    //path.add(received);
+            }}
+            if (received.message === 'text') {
+                var theText = all_paths.get(received.uid).text;
+                theText.justification = 'center';
+                theText.fillColor = 'black';
+                theText.content = received.content;
+            }
+            
+            // You will probably want to add some code here to draw more lines.
+        }}
+
+    if (size == 'large' && withSend) {
+    socket.onmessage = function(receivedMessage) {
+        var received = JSON.parse(receivedMessage.data);
+        console.log("Received: " + JSON.stringify(received));
+
+        if (!all_paths.get(received.uid)) {
+            var canvasName = `canvas${received.uid}`
+            document.getElementById("titleBar").insertAdjacentHTML("afterend", `<canvas id='${canvasName}' width='300px' height='300px'></canvas>`);
+            var newscope = new paper.PaperScope();
+            var newcanvas = document.getElementById(canvasName);
+            //paper.setup(canvas);
+            newscope.setup(newcanvas);
+            newscope.activate();
+            var pointytexty = new paper.PointText(new paper.Point(200, 50));
+            all_paths.set(received.uid, {paths: [], text: pointytexty, scope: newscope});
+        }
+        else {
+            var newscope = all_paths.get(received.uid).scope;
+            newscope.activate();
+        }
+        
+        if (received.message === 'path') {
             //var point = new Point(received.x, received.y);
             if (received.uid !== uid) {
-                if (all_paths.get(received.uid)) {
-                    all_paths.get(received.uid).add(received);
+                //if this uid has paths, and this isn't a new path- can prob change this to just isn't new path
+                if (all_paths.get(received.uid).paths.length>0 && !(received.isNewPath)) {
+                    var paths = all_paths.get(received.uid).paths;
+                    paths[paths.length - 1].add(received);
                 } else {
-                    newPath = new paper.Path();
-                    newPath.strokeColor = getColorFromUid(received.uid);
+                    newPath = new newscope.Path();
+                    //newPath.strokeColor = getColorFromUid(received.uid);
+                    newPath.strokeColor = "red"
                     newPath.add(received);
-                    all_paths.set(received.uid, newPath);
+                    all_paths.get(received.uid).paths.push(newPath);
                 }
                 //path.strokeColor = `#ff${received.uid}`
                 //path.add(received);
         }}
+        if (received.message === 'text') {
+            var theText = all_paths.get(received.uid).text;
+            theText.justification = 'center';
+            theText.fillColor = 'black';
+            theText.content = received.content;
+        }
         
         // You will probably want to add some code here to draw more lines.
-    }
+    }}
 
     socket.onclose = function(e) {
         console.error('Chat socket closed unexpectedly');
