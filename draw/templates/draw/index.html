@@ -37,13 +37,12 @@
     // set up size, tool, uid
     const urlParams = new URLSearchParams(window.location.search);
     var size = urlParams.get("size");
-    var tool = new paper.Tool();
-    console.log("tool: ", tool);
+
     var uid = Date.now() % 10000;
-    var withSend = false;
-    // if (withSend) {
-    //     var pathsToSend = [];
-    // }
+    var withSend = true;
+    if (withSend) {
+        var pathsToSend = new Map(); //map with keys = paths, values = array of objects with point info
+    }
 
     //set up canvas for small
     if (size == 'small') {
@@ -56,7 +55,8 @@
         scope.activate();
         console.log("activated scope");
     }
-    
+    var tool = new paper.Tool();
+    console.log("tool: ", tool);
     //add extra elements
     if (size == "small") {
         document.getElementById("myCanvas").insertAdjacentHTML("afterend", 
@@ -86,9 +86,7 @@
         }
     }
     console.log("here?");
-    tool.onMouseMove = function(event) { //http://paperjs.org/reference/tool/ path examples
-        console.log("mouse move");
-        path.add(event.point);}
+
 
     tool.onMouseDown = function(event) { //http://paperjs.org/reference/tool/ path examples
         console.log("mouse down");
@@ -97,30 +95,49 @@
         path.strokeColor = 'red';
         //all_paths.get(uid).push(path);
         // You may need to add code here if you want to pass any other information.
-        socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + true + ", \"message\" : \"path\"" + "}" );
-        // if (!withSend) {
-        //     socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + true + ", \"message\" : \"path\"" + "}" );
-        // }
-        // else {
-        //     pathsToSend.push(path);
-        // }
+        //socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + true + ", \"message\" : \"path\"" + "}" );
+        if (!withSend) {
+            socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + true + ", \"message\" : \"path\"" + "}" );
+        }
+        else {
+            var pathToSend = {
+                x: event.point.x,
+                y: event.point.y,
+                isNewPath: true,
+            }
+            pathsToSend.set(path, [pathToSend]);
+            console.log("pathsToSend: ", pathsToSend);
+        }
     }
 
     tool.onMouseDrag = function(event) { //http://paperjs.org/reference/tool/ path examples
         console.log("mouse drag");
         path.add(event.point);
-        socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + false + ", \"message\" : \"path\"" + "}" );
+        //socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + false + ", \"message\" : \"path\"" + "}" );
         // You may need to add code here if you want to pass any other information.
-        // if (!withSend) {
-        //     socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + false + ", \"message\" : \"path\"" + "}" );
-        // }
+        if (!withSend) {
+            socket.send("{\"x\" : " + event.point.x + ", \"y\" : " + event.point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + false + ", \"message\" : \"path\"" + "}" );
+        }
+        else {
+            var pathToSend = {
+                x: event.point.x,
+                y: event.point.y,
+                isNewPath: false,
+            }
+            pathsToSend.get(path).push(pathToSend);
+        }
     }
 
     function sendPress() {
         var inputVal = document.getElementById("textbox").value;
         var stringVal = JSON.stringify(inputVal);
         socket.send("{\"uid\" : " + uid + ", \"message\" : \"text\"" + ", \"content\" : " + stringVal + "}" );
-        socket.send("{\"uid\" : " + uid + ", \"message\" : \"path\"" + ", \"paths\" : " + paths + "}" );
+        pathsToSend.forEach( (path) => {
+            path.forEach( (point) => {
+                socket.send("{\"x\" : " + point.x + ", \"y\" : " + point.y + ", \"uid\" : " + uid + ", \"isNewPath\" : " + point.isNewPath + ", \"message\" : \"path\"" + "}" );
+            })
+        })
+        //socket.send("{\"uid\" : " + uid + ", \"message\" : \"path\"" + ", \"paths\" : " + pathsToSend + "}" );
     }
 
     if (size == 'large' && !withSend) {
